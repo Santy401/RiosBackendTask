@@ -40,8 +40,8 @@ async function main() {
     console.log('👤 Role: admin');
     console.log('🆔 User ID:', adminUser.id);
     console.log('\n🎉 You can now login with:');
-    console.log('   Email: admin@rios.com');
-    console.log('   Password: admin123');
+    console.log(`   Email: ${adminEmail}`);
+    console.log(`   Password: ${adminPassword}`);
 
   } catch (error) {
     console.error('❌ Error creating admin user:', error);

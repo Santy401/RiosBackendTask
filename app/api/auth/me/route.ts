@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import jwt from 'jsonwebtoken';
+import { jwtVerify } from 'jose';
 
 interface DecodedToken {
     role?: string;
@@ -8,19 +8,26 @@ interface DecodedToken {
     email?: string;
 }
 
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || '');
+
 export async function GET(request: Request): Promise<NextResponse> {
     try {
         console.log('🔐 Verificando token en /api/auth/me');
 
-        const token = request.headers.get('cookie')?.match(/token=([^;]+)/)?.[1];
-        console.log('🍪 Token encontrado:', !!token);
+        const cookieHeader = request.headers.get('cookie') || '';
+        const token = cookieHeader.match(/(?:^|; )token=([^;]+)/)?.[1];
+        const authToken = cookieHeader.match(/(?:^|; )auth-token=([^;]+)/)?.[1];
+        const activeToken = authToken || token;
 
-        if (!token) {
+        console.log('🍪 Token encontrado:', !!activeToken);
+
+        if (!activeToken) {
             console.log('❌ No hay token');
             return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
         }
 
-        const decoded = jwt.verify(token, process.env.JWT_SECRET!) as DecodedToken;
+        const { payload } = await jwtVerify(activeToken, JWT_SECRET);
+        const decoded = payload as unknown as DecodedToken;
         console.log('📖 Token decodificado:', decoded);
 
         return NextResponse.json({

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import jwt from 'jsonwebtoken';
+import { jwtVerify } from 'jose';
 import { prisma } from '@/lib/prisma';
 
 interface DecodedToken {
@@ -8,22 +8,25 @@ interface DecodedToken {
   id?: string;
 }
 
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || '');
+
 
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
   try {
-    const cookies = request.headers.get('cookie');
-    const token = cookies?.match(/token=([^;]+)/)?.[1];
-    const authToken = cookies?.match(/auth-token=([^;]+)/)?.[1];
-    const activeToken = token || authToken;
+    const cookieHeader = request.headers.get('cookie') || '';
+        const token = cookieHeader.match(/(?:^|; )token=([^;]+)/)?.[1];
+        const authToken = cookieHeader.match(/(?:^|; )auth-token=([^;]+)/)?.[1];
+        const activeToken = authToken || token;
 
     if (!activeToken) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const decoded = jwt.verify(activeToken, process.env.JWT_SECRET!) as DecodedToken;
+    const { payload } = await jwtVerify(activeToken, JWT_SECRET);
+        const decoded = payload as unknown as DecodedToken;
 
     // Only allow users to update their own tasks
     if (decoded.role !== 'user' && decoded.role !== 'admin') {
@@ -70,11 +73,11 @@ export async function PUT(
   } catch (error) {
     console.error('Error en PUT /api/tasks/[id]/status:', error);
 
-    if (error instanceof jwt.JsonWebTokenError) {
+    if (error instanceof Error && error.name === 'JWTInvalid') {
       return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
     }
 
-    if (error instanceof jwt.TokenExpiredError) {
+    if (error instanceof Error && error.name === 'JWTExpired') {
       return NextResponse.json({ error: 'Token expirado' }, { status: 401 });
     }
 
